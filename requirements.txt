@@ -1,1 +1,12 @@
+pandas
+numpy
+yfinance
+pandas-datareader
+statsmodels
+rasterio
+geopandas
+shapely
+streamlit
+plotly
+jupyter
 
