@@ -1,5 +1,6 @@
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 st.set_page_config(
@@ -131,10 +132,10 @@ with tab_factor:
     )
 
 # -------------------------
-# 3D Globe
+# 3D Globe (enhanced)
 # -------------------------
 with tab_globe:
-    st.header("3D Globe — Headquarters & Nighttime Lights (Demo)")
+    st.header("3D Globe — Headquarters & Nighttime Lights (Enhanced Demo)")
 
     sample = (
         df_panel
@@ -142,24 +143,61 @@ with tab_globe:
         .drop_duplicates(subset=["ticker"])[["ticker","lat","lon"]]
     )
 
+    # Base orthographic globe with points
     fig = px.scatter_geo(
         sample,
         lat="lat",
         lon="lon",
         hover_name="ticker",
-        projection="orthographic"
+        projection="orthographic",
     )
+
+    # Dark space look + subtle country outlines
     fig.update_layout(
-        margin={"r":0,"t":0,"l":0,"b":0},
-        paper_bgcolor="#050509",
         geo=dict(
+            projection_type="orthographic",
             showland=True,
-            landcolor="rgb(10,10,40)",
+            landcolor="#050510",
             showocean=True,
-            oceancolor="rgb(5,5,25)",
+            oceancolor="#020207",
+            bgcolor="#050509",
             showcountries=True,
+            countrycolor="rgba(255,255,255,0.25)",
+            showcoastlines=False,
+            showlakes=False,
+            showrivers=False,
+        ),
+        paper_bgcolor="#050509",
+        plot_bgcolor="#050509",
+        margin=dict(r=0, t=0, l=0, b=0),
+    )
+
+    # Neon-glow markers
+    fig.update_traces(
+        marker=dict(
+            size=14,
+            color="rgba(0,255,180,0.95)",        # bright aqua
+            line=dict(width=6, color="rgba(0,255,180,0.35)"),
+            opacity=1,
         )
     )
+
+    # Add NASA Earth-at-night texture as a background image (for vibes)
+    fig.add_layout_image(
+        dict(
+            source="https://eoimages.gsfc.nasa.gov/images/imagerecords/55000/55167/earth_lights_lrg.jpg",
+            xref="paper",
+            yref="paper",
+            x=0,
+            y=1,
+            sizex=1,
+            sizey=1,
+            sizing="stretch",
+            opacity=0.85,
+            layer="below",
+        )
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 # -------------------------
