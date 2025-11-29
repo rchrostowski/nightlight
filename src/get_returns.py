@@ -1,7 +1,6 @@
 import yfinance as yf
 import pandas as pd
-from pathlib import Path
-from src.config import RETURNS_DIR, HQ_DIR
+from src.config import HQ_DIR, RETURNS_DIR
 
 def get_monthly_returns():
     tickers = pd.read_csv(HQ_DIR / "sp500_hq.csv")["ticker"].tolist()
@@ -12,7 +11,8 @@ def get_monthly_returns():
         end="2024-01-01",
         interval="1mo",
         auto_adjust=True,
-        group_by="ticker"
+        group_by="ticker",
+        progress=False,
     )
 
     out = []
@@ -20,18 +20,19 @@ def get_monthly_returns():
         df = data[t].reset_index()
         df["ticker"] = t
         df["ret"] = df["Close"].pct_change()
-        df = df[["Date","ticker","Close","ret"]]
+        df = df[["Date", "ticker", "Close", "ret"]]
         out.append(df)
 
-    final = pd.concat(out)
+    final = pd.concat(out, ignore_index=True)
     final = final.dropna(subset=["ret"])
 
     RETURNS_DIR.mkdir(parents=True, exist_ok=True)
-    final.to_csv(RETURNS_DIR / "monthly_returns.csv", index=False)
-    print("Saved:", RETURNS_DIR / "monthly_returns.csv")
-
+    outpath = RETURNS_DIR / "monthly_returns.csv"
+    final.to_csv(outpath, index=False)
+    print(f"Saved {outpath}")
 
 if __name__ == "__main__":
     get_monthly_returns()
+
 
 
