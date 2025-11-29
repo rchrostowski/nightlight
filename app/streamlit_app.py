@@ -1,28 +1,12 @@
-import sys
-from pathlib import Path
-
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-# Make sure Python can find the src/ package when running `streamlit run app/streamlit_app.py`
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT))
-
-from src.config import FIRM_MONTH_PANEL  # type: ignore
-from src.capm_table1 import capm_table   # type: ignore
-
-
-# ----------------------------
-# Streamlit Page Configuration
-# ----------------------------
 st.set_page_config(
     page_title="Night Lights & Stock Returns",
     layout="wide"
 )
 
-# Basic dark theme styling
 st.markdown(
     """
     <style>
@@ -30,7 +14,6 @@ st.markdown(
             background-color: #050509;
             color: #f5f5f5;
         }
-        /* Make tables readable on dark background */
         .stDataFrame, .stTable {
             color: #f5f5f5;
         }
@@ -42,201 +25,163 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ----------------------------
-# Data Loading Helpers
-# ----------------------------
-@st.cache_data(show_spinner=True)
-def load_panel() -> pd.DataFrame:
-    """Load the firm-month panel from disk."""
-    if not Path(FIRM_MONTH_PANEL).exists():
-        return pd.DataFrame()
-    df = pd.read_csv(FIRM_MONTH_PANEL, parse_dates=["date"])
+# -------------------------
+# Dummy data builders
+# -------------------------
+
+@st.cache_data
+def build_dummy_panel() -> pd.DataFrame:
+    """Firm-month panel with all needed columns for the UI."""
+    data = [
+        # date, ticker, ret, ret_excess, light_level, light_change, RF, Mkt-RF, lat, lon
+        ["2023-01-01","AAPL",0.02,0.018,10.0,0.05,0.002,0.01,37.3349,-122.0090],
+        ["2023-01-01","MSFT",0.015,0.013,9.5,0.03,0.002,0.01,47.6396,-122.1281],
+        ["2023-01-01","AMZN",0.01,0.008,8.0,0.02,0.002,0.01,47.6229,-122.3373],
+        ["2023-02-01","AAPL",0.01,0.007,10.5,0.04,0.003,0.012,37.3349,-122.0090],
+        ["2023-02-01","MSFT",0.012,0.009,9.8,0.02,0.003,0.012,47.6396,-122.1281],
+        ["2023-02-01","AMZN",0.008,0.005,8.1,0.01,0.003,0.012,47.6229,-122.3373],
+        ["2023-03-01","AAPL",0.015,0.013,10.9,0.03,0.002,0.009,37.3349,-122.0090],
+        ["2023-03-01","MSFT",0.017,0.015,10.0,0.04,0.002,0.009,47.6396,-122.1281],
+        ["2023-03-01","AMZN",0.009,0.007,8.3,0.02,0.002,0.009,47.6229,-122.3373],
+        ["2023-04-01","AAPL",0.012,0.009,11.2,0.02,0.002,0.011,37.3349,-122.0090],
+        ["2023-04-01","MSFT",0.014,0.011,10.2,0.03,0.002,0.011,47.6396,-122.1281],
+        ["2023-04-01","AMZN",0.01,0.007,8.4,0.01,0.002,0.011,47.6229,-122.3373],
+        ["2023-05-01","AAPL",0.013,0.011,11.4,0.03,0.003,0.013,37.3349,-122.0090],
+        ["2023-05-01","MSFT",0.016,0.014,10.4,0.04,0.003,0.013,47.6396,-122.1281],
+        ["2023-05-01","AMZN",0.011,0.009,8.5,0.02,0.003,0.013,47.6229,-122.3373],
+        ["2023-06-01","AAPL",0.014,0.012,11.7,0.04,0.002,0.012,37.3349,-122.0090],
+        ["2023-06-01","MSFT",0.017,0.015,10.6,0.05,0.002,0.012,47.6396,-122.1281],
+        ["2023-06-01","AMZN",0.012,0.010,8.7,0.03,0.002,0.012,47.6229,-122.3373],
+    ]
+    cols = ["date","ticker","ret","ret_excess","light_level","light_change","RF","Mkt-RF","lat","lon"]
+    df = pd.DataFrame(data, columns=cols)
+    df["date"] = pd.to_datetime(df["date"])
     return df
 
+@st.cache_data
+def build_dummy_capm_table() -> pd.DataFrame:
+    """Simple static CAPM-style table for the Factor Results tab."""
+    return pd.DataFrame({
+        "Portfolio": ["Port1","Port5","Port10","HighLow"],
+        "CAPM_alpha": [0.0005, 0.0010, 0.0020, 0.0015],
+        "t_stat":     [0.8,    1.5,    2.3,    2.0],
+        "beta":       [0.9,    1.0,    1.1,    0.2],
+    })
 
-@st.cache_data(show_spinner=True)
-def load_capm_table() -> pd.DataFrame:
-    """Run / load the CAPM Table 1 style results."""
-    try:
-        table = capm_table()
-        return table
-    except Exception as e:
-        st.warning(f"Could not compute CAPM table: {e}")
-        return pd.DataFrame()
+df_panel = build_dummy_panel()
+capm_tbl = build_dummy_capm_table()
 
+# -------------------------
+# Layout
+# -------------------------
 
-df_panel = load_panel()
-
-# ----------------------------
-# Page Title
-# ----------------------------
 st.title("Night Lights, Local Economic Activity, and Stock Returns")
 
 st.write(
-    "This dashboard explores whether changes in satellite-measured nighttime lights "
-    "around firm headquarters (ΔLight) predict next-month stock returns and generate "
-    "abnormal CAPM alpha."
+    "This dashboard (demo mode) uses synthetic data to visualize the idea: "
+    "changes in nighttime satellite lights around firm headquarters (ΔLight) "
+    "and their relationship with next-month excess returns."
 )
 
-# ----------------------------
-# Tabs
-# ----------------------------
 tab_overview, tab_factor, tab_globe, tab_ticker = st.tabs(
     ["Overview", "Factor Results (CAPM)", "3D Globe", "Ticker Lookup"]
 )
 
-# ----------------------------
-# Overview Tab
-# ----------------------------
+# -------------------------
+# Overview
+# -------------------------
 with tab_overview:
     st.header("Project Overview")
-
     st.markdown(
         """
-        We construct a firm–month panel combining:
+        In the full version of this project, we will:
 
-        - Headquarters latitude/longitude  
-        - VIIRS nighttime light radiance and its monthly change (ΔLight)  
-        - Monthly stock returns for S&P 500 firms  
-        - Fama–French factor data  
+        - Merge firm headquarters coordinates with monthly VIIRS night-lights data  
+        - Compute a ΔLight signal for each firm each month  
+        - Sort firms into portfolios by ΔLight and compute next-month excess returns  
+        - Estimate CAPM/FF models to see whether the ΔLight long–short portfolio earns alpha  
 
-        Each month, firms are sorted into deciles based on ΔLight. We then compute
-        the next-month excess returns for each decile and form a **High − Low**
-        portfolio (top ΔLight decile minus bottom decile).  
-
-        Our core empirical test is whether this High − Low portfolio earns a
-        statistically significant **CAPM alpha**, indicating that luminosity-based
-        information has predictive power beyond simple market exposure.
+        This demo uses a small synthetic panel just to show the look and feel of the final site.
         """
     )
+    st.subheader("Panel Preview")
+    st.dataframe(df_panel.head())
 
-    if df_panel.empty:
-        st.warning(
-            "No panel data found yet. Run the data-building scripts "
-            "(get_factors.py, get_returns.py, build_nightlights_signal.py, "
-            "build_panel.py) to populate `data_processed/firm_month_panel.csv`."
-        )
-    else:
-        st.success("Firm–month panel loaded successfully.")
-        st.write("Preview of the merged panel:")
-        st.dataframe(df_panel.head())
-
-# ----------------------------
-# Factor Results (CAPM) Tab
-# ----------------------------
+# -------------------------
+# Factor Results
+# -------------------------
 with tab_factor:
-    st.header("CAPM Table 1 — ΔLight-Sorted Portfolios")
+    st.header("CAPM Table 1 — ΔLight-Sorted Portfolios (Demo)")
+    st.markdown(
+        """
+        In the live version, this table will be built from ΔLight-sorted portfolios
+        and CAPM regressions:
 
-    if df_panel.empty:
-        st.warning("Panel data not loaded. Cannot compute CAPM results.")
-    else:
-        table = load_capm_table()
-        if table.empty:
-            st.warning("CAPM table is empty or could not be computed.")
-        else:
-            st.markdown(
-                """
-                For each ΔLight-sorted portfolio (deciles and the High−Low spread),
-                we estimate the CAPM regression:
+        \\[
+        r_{p,t} - r_{f,t} = \\alpha_p + \\beta_p (Mkt - RF)_t + \\varepsilon_{p,t}.
+        \\]
 
-                \\[
-                r_{p,t} - r_{f,t} = \\alpha_p + \\beta_p (Mkt - RF)_t + \\varepsilon_{p,t}
-                \\]
+        For now, we display placeholder values to illustrate the structure.
+        """
+    )
+    st.dataframe(
+        capm_tbl.style.format(
+            {"CAPM_alpha": "{:.4f}", "t_stat": "{:.2f}", "beta": "{:.2f}"}
+        )
+    )
 
-                The key statistic of interest is **α (CAPM_alpha)** for the High−Low
-                portfolio, along with its t-statistic. A positive and significant α
-                suggests that the night-lights signal qualifies as an asset-pricing anomaly.
-                """
-            )
-
-            st.subheader("CAPM Alpha, t-Statistic, and Beta by Portfolio")
-            st.dataframe(table.style.format({"CAPM_alpha": "{:.4f}", "t_stat": "{:.2f}", "beta": "{:.2f}"}))
-
-# ----------------------------
-# 3D Globe Tab
-# ----------------------------
+# -------------------------
+# 3D Globe
+# -------------------------
 with tab_globe:
-    st.header("3D Globe — Headquarters & Nighttime Lights")
+    st.header("3D Globe — Headquarters & Nighttime Lights (Demo)")
 
-    if df_panel.empty:
-        st.warning("Panel data not loaded. Cannot render HQ locations.")
-    else:
-        if not {"lat", "lon"}.issubset(df_panel.columns):
-            st.warning(
-                "Latitude/longitude not found in the panel. "
-                "Ensure `sp500_hq.csv` has lat/lon and that lights_panel.csv "
-                "propagates them into the merged panel."
-            )
-        else:
-            st.markdown(
-                """
-                The globe below shows a subset of firm headquarters as points on an
-                orthographic projection. A more advanced version could color or size
-                points by average ΔLight, recent change, or other firm characteristics.
-                """
-            )
+    sample = (
+        df_panel
+        .dropna(subset=["lat","lon"])
+        .drop_duplicates(subset=["ticker"])[["ticker","lat","lon"]]
+    )
 
-            # Use one row per ticker for the globe view
-            hq_sample = (
-                df_panel
-                .dropna(subset=["lat", "lon"])
-                .drop_duplicates(subset=["ticker"])[["ticker", "lat", "lon"]]
-            )
+    fig = px.scatter_geo(
+        sample,
+        lat="lat",
+        lon="lon",
+        hover_name="ticker",
+        projection="orthographic"
+    )
+    fig.update_layout(
+        margin={"r":0,"t":0,"l":0,"b":0},
+        paper_bgcolor="#050509",
+        geo=dict(
+            showland=True,
+            landcolor="rgb(10,10,40)",
+            showocean=True,
+            oceancolor="rgb(5,5,25)",
+            showcountries=True,
+        )
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-            # If you want to color by something, you could merge in avg light_change
-            fig = px.scatter_geo(
-                hq_sample,
-                lat="lat",
-                lon="lon",
-                hover_name="ticker",
-                projection="orthographic"
-            )
-            fig.update_layout(
-                margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                paper_bgcolor="#050509",
-                geo=dict(
-                    showland=True,
-                    landcolor="rgb(10,10,40)",
-                    showocean=True,
-                    oceancolor="rgb(5,5,25)",
-                    showcountries=True,
-                )
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-# ----------------------------
-# Ticker Lookup Tab
-# ----------------------------
+# -------------------------
+# Ticker Lookup
+# -------------------------
 with tab_ticker:
-    st.header("Ticker Lookup — ΔLight and Returns")
+    st.header("Ticker Lookup — ΔLight and Excess Returns (Demo)")
 
-    if df_panel.empty:
-        st.warning("Panel data not loaded. Cannot show ticker-level details.")
-    else:
-        tickers = sorted(df_panel["ticker"].dropna().unique().tolist())
-        if not tickers:
-            st.warning("No tickers found in panel dataset.")
-        else:
-            selected = st.selectbox("Select a ticker:", tickers, index=0)
+    tickers = sorted(df_panel["ticker"].unique().tolist())
+    selected = st.selectbox("Select a ticker:", tickers, index=0)
 
-            sub = (
-                df_panel[df_panel["ticker"] == selected]
-                .sort_values("date")
-                .set_index("date")
-            )
+    sub = (
+        df_panel[df_panel["ticker"] == selected]
+        .sort_values("date")
+        .set_index("date")
+    )
 
-            st.subheader(f"ΔLight and Excess Return Over Time — {selected}")
+    cols_to_plot = ["light_change", "ret_excess"]
 
-            cols_to_plot = []
-            if "light_change" in sub.columns:
-                cols_to_plot.append("light_change")
-            if "ret_excess" in sub.columns:
-                cols_to_plot.append("ret_excess")
+    st.subheader(f"ΔLight and Excess Return Over Time — {selected}")
+    st.line_chart(sub[cols_to_plot])
 
-            if cols_to_plot:
-                st.line_chart(sub[cols_to_plot])
-            else:
-                st.write("No plottable columns found for this ticker.")
+    st.write("Recent data:")
+    st.dataframe(sub[cols_to_plot].tail(12))
 
-            st.write("Raw data:")
-            st.dataframe(sub.reset_index()[["date"] + cols_to_plot].tail(24))
