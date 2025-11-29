@@ -1,22 +1,33 @@
 import pandas as pd
-from config import RETURNS_DIR, FACTORS_DIR, DATA_PROCESSED, FIRM_MONTH_PANEL
+from pathlib import Path
+from src.config import (
+    HQ_DIR,
+    RETURNS_DIR,
+    FACTORS_DIR,
+    DATA_PROCESSED,
+)
 
-def build():
-    rets = pd.read_csv(RETURNS_DIR / "sp500_monthly_returns.csv", parse_dates=["date"])
-    ff = pd.read_csv(FACTORS_DIR / "ff_factors.csv", parse_dates=["Unnamed: 0"]).rename(columns={"Unnamed: 0":"date"})
-    lights = pd.read_csv(DATA_PROCESSED / "lights_panel.csv", parse_dates=["date"])
+def build_panel():
+    hq = pd.read_csv(HQ_DIR / "sp500_hq.csv")
+    rets = pd.read_csv(RETURNS_DIR / "monthly_returns.csv")
+    ff = pd.read_csv(FACTORS_DIR / "ff_factors.csv")
 
-    for c in ff.columns:
-        if c != "date":
-            ff[c] = ff[c] / 100
+    rets = rets.rename(columns={"Date":"date"})
+    rets["date"] = pd.to_datetime(rets["date"])
+    ff["date"] = pd.to_datetime(ff["date"])
 
-    df = (
-        rets.merge(lights, on=["ticker", "date"], how="inner")
-            .merge(ff, on="date", how="inner")
-    )
-    df["ret_excess"] = df["ret"] - df["RF"]
-    df.to_csv(FIRM_MONTH_PANEL, index=False)
+    # Merge HQ → returns
+    final = rets.merge(hq, on="ticker", how="left")
+
+    # Merge factors
+    final = final.merge(ff, on="date", how="left")
+
+    DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
+    final.to_csv(DATA_PROCESSED / "firm_month_panel.csv", index=False)
+
+    print("Saved:", DATA_PROCESSED / "firm_month_panel.csv")
 
 if __name__ == "__main__":
-    build()
+    build_panel()
+
 
